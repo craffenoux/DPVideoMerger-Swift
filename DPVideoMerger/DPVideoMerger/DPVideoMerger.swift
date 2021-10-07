@@ -9,11 +9,11 @@
 import UIKit
 import AVKit
 
-
-
-@objc protocol VideoMerger {
+protocol VideoMerger {
     func mergeVideos(withFileURLs videoFileURLs: [URL], videoResolution:CGSize, videoQuality:String, completion: @escaping (_ mergedVideoURL: URL?, _ error: Error?) -> Void)
-    func mergeVideosWithMusic(withFileURLs videoFileURLs: [URL], videoResolution:CGSize, videoQuality:String, audioUrl: URL, isRepeatingAudio: Bool, completion: @escaping (_ mergedVideoURL: URL?, _ error: Error?) -> Void)
+    
+    func mergeVideos(withFileURLs videoFileURLs: [URL], videoResolution:CGSize, videoQuality:String, audioUrl: URL?, isRepeatingAudio: Bool, watermark: CGImage?, watermarkResolution: CGSize?, completion: @escaping (_ mergedVideoURL: URL?, _ error: Error?) -> Void)
+    
     func gridMergeVideos(withFileURLs videoFileURLs: [URL], matrix: DPVideoMatrix, audioFileURL: URL?, videoResolution: CGSize, isRepeatVideo: Bool, isRepeatAudio: Bool, isAudio: Bool,videoDuration: Int, videoQuality: String, completion: @escaping (_ mergedVideoURL: URL?, _ error: Error?) -> Void)
     func parallelMergeVideos(withFileURLs videoFileURLs: [URL], audioFileURL: URL?, videoResolution: CGSize, isRepeatVideo: Bool, isRepeatAudio: Bool, videoDuration: Int, videoQuality: String, alignment: ParallelMergeAlignment, completion: @escaping (_ mergedVideoURL: URL?, _ error: Error?) -> Void)
 }
@@ -42,7 +42,16 @@ import AVKit
 }
 // MARK:-  Public Functions
 extension DPVideoMerger : VideoMerger {
-    func mergeVideosWithMusic(withFileURLs videoFileURLs: [URL], videoResolution: CGSize, videoQuality: String, audioUrl: URL, isRepeatingAudio: Bool, completion: @escaping (URL?, Error?) -> Void) {
+    open func mergeVideos(
+        withFileURLs videoFileURLs: [URL],
+        videoResolution: CGSize,
+        videoQuality: String,
+        audioUrl: URL?,
+        isRepeatingAudio: Bool,
+        watermark: CGImage?,
+        watermarkResolution: CGSize?,
+        completion: @escaping (_ mergedVideoURL: URL?, _ error: Error?) -> Void
+    ) {
         if videoFileURLs.count <= 1 {
             DispatchQueue.main.async { completion(nil, self.videoMoreThenOneError()) }
             return
@@ -201,10 +210,13 @@ extension DPVideoMerger : VideoMerger {
             }
         }
         
-        addAudioToMergedVideo(audioUrl, composition, true, currentTime, completion)
+        if let audioUrl = audioUrl {
+            addAudioToMergedVideo(audioUrl, composition, true, currentTime, completion)
+        }
+        
         
         if isError == false {
-            exportMergedVideo(instructions, highestFrameRate, videoSize, composition, videoQuality, completion)
+            exportMergedVideo(instructions, highestFrameRate, videoSize, composition, videoQuality, watermark, watermarkResolution, completion)
         }
     }
     
@@ -379,7 +391,7 @@ extension DPVideoMerger : VideoMerger {
             }
         }
         if isError == false {
-            exportMergedVideo(instructions, highestFrameRate, videoSize, composition, videoQuality, completion)
+            exportMergedVideo(instructions, highestFrameRate, videoSize, composition, videoQuality, nil, nil, completion)
         }
     }
     
@@ -544,8 +556,7 @@ extension DPVideoMerger : VideoMerger {
         }
         instruction.layerInstructions = arrAVMutableVideoCompositionLayerInstruction.reversed()
 
-        exportMergedVideo([instruction], highestFrameRate, videoResolution, composition, videoQuality, completion)
-        
+        exportMergedVideo([instruction], highestFrameRate, videoResolution, composition, videoQuality, nil, nil, completion)
     }
 
     
@@ -713,11 +724,34 @@ fileprivate extension DPVideoMerger {
     }
        
     
-    func exportMergedVideo(_ instructions: [AVVideoCompositionInstructionProtocol], _ highestFrameRate: Int, _ videoResolution: CGSize, _ composition: AVMutableComposition, _ videoQuality: String, _ completion: @escaping (URL?, Error?) -> Void) {
+    func exportMergedVideo(_ instructions: [AVVideoCompositionInstructionProtocol], _ highestFrameRate: Int, _ videoResolution: CGSize, _ composition: AVMutableComposition, _ videoQuality: String, _ watermark: CGImage? = nil, _ watermarkResolution: CGSize? = nil, _ completion: @escaping (URL?, Error?) -> Void) {
         let mainComposition = AVMutableVideoComposition()
         mainComposition.instructions = instructions
         mainComposition.frameDuration = CMTimeMake(value: 1, timescale: Int32(highestFrameRate))
         mainComposition.renderSize = videoResolution
+        
+        if let watermark = watermark,
+           let watermarkResolution = watermarkResolution {
+            let videoSize: CGSize = videoResolution
+            let frame = CGRect(x: 0.0, y: 0.0, width: videoSize.width, height: videoSize.height)
+
+            let imageLayer = CALayer()
+            imageLayer.contents = watermark
+            imageLayer.frame = CGRect(x: 40, y: 40, width: watermarkResolution.width, height: watermarkResolution.height)
+
+            let videoLayer = CALayer()
+            videoLayer.frame = frame
+
+            let animationLayer = CALayer()
+            animationLayer.frame = frame
+            animationLayer.addSublayer(videoLayer)
+            animationLayer.addSublayer(imageLayer)
+
+            mainComposition.animationTool = AVVideoCompositionCoreAnimationTool(
+                postProcessingAsVideoLayer: videoLayer,
+                in: animationLayer
+            )
+        }
         
         let url = URL(fileURLWithPath: generateMergedVideoFilePath())
         
