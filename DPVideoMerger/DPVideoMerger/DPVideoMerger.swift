@@ -13,7 +13,7 @@ import AVKit
 
 @objc protocol VideoMerger {
     func mergeVideos(withFileURLs videoFileURLs: [URL], videoResolution:CGSize, videoQuality:String, completion: @escaping (_ mergedVideoURL: URL?, _ error: Error?) -> Void)
-    func mergeVideos(withFileURLs videoFileURLs: [URL], videoResolution:CGSize, videoQuality:String, audioUrl: URL, isRepeatingAudio: Bool, completion: @escaping (_ mergedVideoURL: URL?, _ error: Error?) -> Void)
+    func mergeVideosWithMusic(withFileURLs videoFileURLs: [URL], videoResolution:CGSize, videoQuality:String, audioUrl: URL, isRepeatingAudio: Bool, completion: @escaping (_ mergedVideoURL: URL?, _ error: Error?) -> Void)
     func gridMergeVideos(withFileURLs videoFileURLs: [URL], matrix: DPVideoMatrix, audioFileURL: URL?, videoResolution: CGSize, isRepeatVideo: Bool, isRepeatAudio: Bool, isAudio: Bool,videoDuration: Int, videoQuality: String, completion: @escaping (_ mergedVideoURL: URL?, _ error: Error?) -> Void)
     func parallelMergeVideos(withFileURLs videoFileURLs: [URL], audioFileURL: URL?, videoResolution: CGSize, isRepeatVideo: Bool, isRepeatAudio: Bool, videoDuration: Int, videoQuality: String, alignment: ParallelMergeAlignment, completion: @escaping (_ mergedVideoURL: URL?, _ error: Error?) -> Void)
 }
@@ -42,7 +42,7 @@ import AVKit
 }
 // MARK:-  Public Functions
 extension DPVideoMerger : VideoMerger {
-    func mergeVideos(withFileURLs videoFileURLs: [URL], videoResolution: CGSize, videoQuality: String, audioUrl: URL, isRepeatingAudio: Bool, completion: @escaping (URL?, Error?) -> Void) {
+    func mergeVideosWithMusic(withFileURLs videoFileURLs: [URL], videoResolution: CGSize, videoQuality: String, audioUrl: URL, isRepeatingAudio: Bool, completion: @escaping (URL?, Error?) -> Void) {
         if videoFileURLs.count <= 1 {
             DispatchQueue.main.async { completion(nil, self.videoMoreThenOneError()) }
             return
